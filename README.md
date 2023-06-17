@@ -14,6 +14,14 @@ $ npm install
 
 ## Running the app
 
+Create `.env` file to add aws related credentials
+
+```
+AWS_ACCESS_KEY=
+AWS_SECRET_ACCESS_KEY=
+AWS_S3_REGION=
+```
+
 ```bash
 # development
 $ npm run start
