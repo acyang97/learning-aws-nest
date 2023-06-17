@@ -2,6 +2,8 @@
 
 Backend for learning and making use of various AWS services using [Nest](https://github.com/nestjs/nest) framework.
 
+Frontend: [learning-aws-frontend](https://github.com/acyang97/learning-aws-frontend)
+
 Service tried out so far:
 
 1. S3
