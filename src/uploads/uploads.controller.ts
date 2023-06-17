@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   FileTypeValidator,
   Get,
   Param,
@@ -41,8 +42,8 @@ export class UploadsController {
     return this.uploadsService.getAllImages();
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string): string {
-    return `This action returns a #${id} cat`;
+  @Delete(':id')
+  async findOne(@Param('id') imageName: string): Promise<void> {
+    return this.uploadsService.deleteImageByImageName(imageName);
   }
 }

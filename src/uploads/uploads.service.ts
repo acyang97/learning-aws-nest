@@ -1,6 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
+  DeleteObjectCommand,
   GetObjectCommand,
   PutObjectCommand,
   S3Client,
@@ -66,23 +67,55 @@ export class UploadsService {
   async getAllImages() {
     const uploads: S3Upload[] = await this.S3UploadModel.find().exec();
     let res: GetAllImagesResponse = {
-      imageUrls: [],
+      images: [],
     };
-    for (let upload of uploads) {
-      const getObjectParams = {
-        Bucket: this.configService.getOrThrow('AWS_S3_BUCKET_NAME'),
-        Key: upload.imageName,
-      };
-      const command = new GetObjectCommand(getObjectParams);
-      const imageUrl = await getSignedUrl(this.s3Client, command, {
-        expiresIn: 60 * 60 * 24,
-      });
-      res = {
-        imageUrls: [...res.imageUrls, imageUrl],
-      };
+    try {
+      for (let upload of uploads) {
+        const getObjectParams = {
+          Bucket: this.configService.getOrThrow('AWS_S3_BUCKET_NAME'),
+          Key: upload.imageName,
+        };
+        const command = new GetObjectCommand(getObjectParams);
+        const imageUrl = await getSignedUrl(this.s3Client, command, {
+          expiresIn: 60 * 60 * 24,
+        });
+        res = {
+          images: [
+            ...res.images,
+            {
+              imageUrl,
+              imageName: upload.imageName,
+              caption: upload.caption,
+            },
+          ],
+        };
+      }
+      return res;
+    } catch (error) {
+      throw new InternalServerErrorException(error);
     }
-    return res;
   }
 
-  async getFile(): Promise<void> {}
+  async deleteImageByImageName(imageName: string): Promise<void> {
+    const imageToBeDeleted = await this.S3UploadModel.findOne({ imageName });
+    if (!imageToBeDeleted) {
+      throw new Error(`${imageName} cannot be found`);
+    }
+    try {
+      await this.S3UploadModel.deleteOne({ imageName });
+    } catch (err) {
+      throw new Error('error when deleting from mongo');
+    }
+    // delete from mongo first
+    try {
+      await this.s3Client.send(
+        new DeleteObjectCommand({
+          Bucket: this.configService.getOrThrow('AWS_S3_BUCKET_NAME'),
+          Key: imageName,
+        }),
+      );
+    } catch (err) {
+      throw new Error('error when deleting from s3');
+    }
+  }
 }

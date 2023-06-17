@@ -1,3 +1,9 @@
 export interface GetAllImagesResponse {
-  imageUrls: string[];
+  images: S3File[];
+}
+
+export interface S3File {
+  imageUrl: string;
+  caption: string;
+  imageName: string;
 }
