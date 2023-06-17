@@ -7,6 +7,7 @@ Frontend: [learning-aws-frontend](https://github.com/acyang97/learning-aws-front
 Service tried out so far:
 
 1. S3
+2. Cloudfront
 
 ## Installation
 
