@@ -76,9 +76,12 @@ export class UploadsService {
           Key: upload.imageName,
         };
         const command = new GetObjectCommand(getObjectParams);
-        const imageUrl = await getSignedUrl(this.s3Client, command, {
-          expiresIn: 60 * 60 * 24,
-        });
+        // const imageName = await getSignedUrl(this.s3Client, command, {
+        //   expiresIn: 60 * 60 * 24,
+        // });
+        const imageUrl = `${this.configService.getOrThrow(
+          'AWS_CLOUDFRONT_DOMAIN',
+        )}/${upload.imageName}`;
         res = {
           images: [
             ...res.images,
