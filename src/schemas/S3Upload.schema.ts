@@ -1,7 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument } from 'mongoose';
 
-export type Document = HydratedDocument<S3Upload>;
+export type S3UploadDocument = HydratedDocument<S3Upload>;
 
 @Schema()
 export class S3Upload {
