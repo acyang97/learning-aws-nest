@@ -2,7 +2,6 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   DeleteMessageBatchCommand,
-  DeleteMessageCommand,
   Message,
   ReceiveMessageCommand,
   SQSClient,
@@ -10,11 +9,8 @@ import {
 } from '@aws-sdk/client-sqs';
 import { InjectModel } from '@nestjs/mongoose';
 import { SqsOrder, SqsOrderDocument } from 'src/schemas/SqsOrder.schema';
-import mongoose, { Model, Mongoose, Types } from 'mongoose';
-import {
-  MESSAGE_DEDUPLICATION_ID,
-  MESSAGE_GROUP_ID,
-} from './sqs-order.constants';
+import { Model } from 'mongoose';
+import { MESSAGE_GROUP_ID } from './sqs-order.constants';
 import { SqsOrderStatus } from './sqs-order.enum';
 import { CreateSqsOrderDto } from './sqs-order.dto';
 
@@ -61,6 +57,7 @@ export class SqsOrderService {
         MessageBody: createdSqsOrder.orderNumber.toString(),
         QueueUrl: this.configService.get('AWS_SQS_DOMAIN'),
         MessageGroupId: MESSAGE_GROUP_ID,
+        // For sqs to detect duplicate messages
         MessageDeduplicationId: Math.random().toString(),
       });
       const result = await this.sqsClient.send(command);
@@ -91,7 +88,7 @@ export class SqsOrderService {
       // update status in database
       messages.forEach(async (message) => this.updateStatus(message));
       // delete message in sqs
-      await this.deleteOrders(messages);
+      await this.deleteOrdersFromQueue(messages);
     } catch (error) {
       console.log('unsuccessful');
       throw new Error(error);
@@ -113,7 +110,7 @@ export class SqsOrderService {
     );
   }
 
-  private async deleteOrders(messages: Message[]) {
+  private async deleteOrdersFromQueue(messages: Message[]) {
     const entries = messages.map((message) => {
       return { Id: message.MessageId, ReceiptHandle: message.ReceiptHandle };
     });
@@ -122,5 +119,10 @@ export class SqsOrderService {
       QueueUrl: this.configService.get('AWS_SQS_DOMAIN'),
     });
     await this.sqsClient.send(command);
+  }
+
+  // just for test
+  public async deleteAllOrdersFromDb(): Promise<void> {
+    await this.SqsOrderModel.deleteMany({});
   }
 }
