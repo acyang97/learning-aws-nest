@@ -8,6 +8,7 @@ Service tried out so far:
 
 1. S3
 2. Cloudfront
+3. SQS
 
 ## Installation
 
