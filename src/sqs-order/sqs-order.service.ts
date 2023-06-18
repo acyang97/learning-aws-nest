@@ -1,9 +1,16 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { SQSClient, SendMessageCommand } from '@aws-sdk/client-sqs';
+import {
+  DeleteMessageBatchCommand,
+  DeleteMessageCommand,
+  Message,
+  ReceiveMessageCommand,
+  SQSClient,
+  SendMessageCommand,
+} from '@aws-sdk/client-sqs';
 import { InjectModel } from '@nestjs/mongoose';
 import { SqsOrder, SqsOrderDocument } from 'src/schemas/SqsOrder.schema';
-import { Model } from 'mongoose';
+import mongoose, { Model, Mongoose, Types } from 'mongoose';
 import {
   MESSAGE_DEDUPLICATION_ID,
   MESSAGE_GROUP_ID,
@@ -31,9 +38,11 @@ export class SqsOrderService {
   private async createSqsOrder(
     orderItems: string[],
   ): Promise<SqsOrderDocument> {
+    const count = (await this.SqsOrderModel.find()).length;
     const created = new this.SqsOrderModel({
       orderItems,
       orderStatus: SqsOrderStatus.SENT,
+      orderNumber: count + 1,
     });
     return created.save();
   }
@@ -49,16 +58,10 @@ export class SqsOrderService {
 
     try {
       const command = new SendMessageCommand({
-        MessageBody: 'Successfully created',
+        MessageBody: createdSqsOrder.orderNumber.toString(),
         QueueUrl: this.configService.get('AWS_SQS_DOMAIN'),
-        MessageAttributes: {
-          OrderId: {
-            DataType: 'String',
-            StringValue: createdSqsOrder._id.toString(),
-          },
-        },
         MessageGroupId: MESSAGE_GROUP_ID,
-        MessageDeduplicationId: MESSAGE_DEDUPLICATION_ID,
+        MessageDeduplicationId: Math.random().toString(),
       });
       const result = await this.sqsClient.send(command);
       console.log('successful result', result);
@@ -66,5 +69,58 @@ export class SqsOrderService {
       console.log('unsuccessful', error);
       throw new Error(error);
     }
+  }
+
+  // Create an endpoint to do this manually first
+  // Afterwards, try creating a worker to do this for us
+  public async pollOrders() {
+    try {
+      const command = new ReceiveMessageCommand({
+        MaxNumberOfMessages: 5,
+        QueueUrl: this.configService.get('AWS_SQS_DOMAIN'),
+        WaitTimeSeconds: 5,
+        MessageAttributeNames: ['All'],
+      });
+      const result = await this.sqsClient.send(command);
+      console.log('successfully get message from queue', result);
+      const messages = result.Messages;
+
+      if (!messages) {
+        return; // nothing to process
+      }
+      // update status in database
+      messages.forEach(async (message) => this.updateStatus(message));
+      // delete message in sqs
+      await this.deleteOrders(messages);
+    } catch (error) {
+      console.log('unsuccessful');
+      throw new Error(error);
+    }
+  }
+
+  private async updateStatus(message: Message) {
+    const sqsOrder = await this.SqsOrderModel.findOne({
+      orderNumber: Number(message.Body),
+    });
+    console.log(sqsOrder);
+    // update
+    await this.SqsOrderModel.findOneAndUpdate(
+      {
+        orderNumber: Number(message.Body),
+      },
+      { orderStatus: SqsOrderStatus.PROCESSED },
+      {},
+    );
+  }
+
+  private async deleteOrders(messages: Message[]) {
+    const entries = messages.map((message) => {
+      return { Id: message.MessageId, ReceiptHandle: message.ReceiptHandle };
+    });
+    const command = new DeleteMessageBatchCommand({
+      Entries: entries,
+      QueueUrl: this.configService.get('AWS_SQS_DOMAIN'),
+    });
+    await this.sqsClient.send(command);
   }
 }

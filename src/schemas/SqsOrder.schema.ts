@@ -11,6 +11,9 @@ export class SqsOrder {
 
   @Prop({ required: true, enum: SqsOrderStatus })
   orderStatus: SqsOrderStatus;
+
+  @Prop()
+  orderNumber: number;
 }
 
 export const SqsOrderSchema = SchemaFactory.createForClass(SqsOrder);

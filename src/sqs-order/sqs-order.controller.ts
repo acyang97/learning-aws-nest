@@ -1,4 +1,4 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Post, Put } from '@nestjs/common';
 import { SqsOrderService } from './sqs-order.service';
 import { CreateSqsOrderDto } from './sqs-order.dto';
 
@@ -11,5 +11,10 @@ export class SqsOrderController {
     @Body() createSqsOrderDto: CreateSqsOrderDto,
   ) {
     return this.sqsOrderService.sendMessageToQueue(createSqsOrderDto);
+  }
+
+  @Put('poll')
+  public async pollOrders() {
+    return this.sqsOrderService.pollOrders();
   }
 }
