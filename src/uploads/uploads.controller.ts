@@ -31,9 +31,6 @@ export class UploadsController {
     file: Express.Multer.File,
     @Body() data: { caption: string },
   ): Promise<S3Upload> {
-    console.log('endpoint reached');
-    console.log('caption', data.caption);
-    console.log('file', file);
     return this.uploadsService.uploadSingleFile(file, data.caption);
   }
 
